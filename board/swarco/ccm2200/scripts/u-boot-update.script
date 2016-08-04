@@ -1,0 +1,5 @@
+echo *** SWARCO Traffic Systems CCM2200 U-Boot Update testing version...
+setenv boot_usb usb reset\;fatload usb 0 $(loadaddr) ub_v2010.bin\;autoscr
+setenv boot_usb $(boot_usb)\;fatload usb 0 $(loadaddr) ub_v1_2.bin\;autoscr
+run boot_usb
+

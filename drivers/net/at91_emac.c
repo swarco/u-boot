@@ -479,6 +479,88 @@ static int at91emac_write_hwaddr(struct eth_device *netdev)
 	return 0;
 }
 
+/* 2010-12-03 gc:  */
+static int at91emac_phy_start_autonegation(struct eth_device *netdev)
+{
+	at91_emac_t *emac = (at91_emac_t *) netdev->iobase;
+
+	at91emac_write(emac, CONFIG_DRIVER_AT91EMAC_PHYADDR,
+		       MII_ADVERTISE, ADVERTISE_CSMA | ADVERTISE_ALL);
+	VERBOSEP("(starting autonegotiation) ");
+	at91emac_write(emac, CONFIG_DRIVER_AT91EMAC_PHYADDR, MII_BMCR,
+		       BMCR_ANENABLE | BMCR_ANRESTART);
+
+	return 0;
+}
+static int at91emac_pre_init(struct eth_device *netdev, bd_t *bd)
+{
+	int i;
+	u32 value;
+	emac_device *dev;
+	at91_emac_t *emac;
+	at91_pio_t *pio = (at91_pio_t *) AT91_PIO_BASE;
+	at91_pmc_t *pmc = (at91_pmc_t *) AT91_PMC_BASE;
+
+	emac = (at91_emac_t *) netdev->iobase;
+	dev = (emac_device *) netdev->priv;
+
+	/* PIO Disable Register */
+	value =	AT91_PMX_AA_EMDIO |	AT91_PMX_AA_EMDC |
+		AT91_PMX_AA_ERXER |	AT91_PMX_AA_ERX1 |
+		AT91_PMX_AA_ERX0 |	AT91_PMX_AA_ECRS |
+		AT91_PMX_AA_ETX1 |	AT91_PMX_AA_ETX0 |
+		AT91_PMX_AA_ETXEN |	AT91_PMX_AA_EREFCK;
+
+	writel(value, &pio->pioa.pdr);
+	writel(value, &pio->pioa.asr);
+
+#ifdef CONFIG_RMII
+	value = AT91_PMX_BA_ERXCK;
+#else
+	value = AT91_PMX_BA_ERXCK |	AT91_PMX_BA_ECOL |
+		AT91_PMX_BA_ERXDV |	AT91_PMX_BA_ERX3 |
+		AT91_PMX_BA_ERX2 |	AT91_PMX_BA_ETXER |
+		AT91_PMX_BA_ETX3 |	AT91_PMX_BA_ETX2;
+#endif
+	writel(value, &pio->piob.pdr);
+	writel(value, &pio->piob.bsr);
+
+	writel(1 << AT91_ID_EMAC, &pmc->pcer);
+	writel(readl(&emac->ctl) | AT91_EMAC_CTL_CSR, &emac->ctl);
+
+	/* Init Ethernet buffers */
+	for (i = 0; i < RBF_FRAMEMAX; i++) {
+		dev->rbfdt[i].addr = (unsigned long) NetRxPackets[i];
+		dev->rbfdt[i].size = 0;
+	}
+	dev->rbfdt[RBF_FRAMEMAX - 1].addr |= RBF_WRAP;
+	dev->rbindex = 0;
+	writel((u32) &(dev->rbfdt[0]), &emac->rbqp);
+
+	writel(readl(&emac->rsr) &
+		~(AT91_EMAC_RSR_OVR | AT91_EMAC_RSR_REC | AT91_EMAC_RSR_BNA),
+		&emac->rsr);
+
+	value = AT91_EMAC_CFG_CAF |	AT91_EMAC_CFG_NBC |
+		HCLK_DIV;
+#ifdef CONFIG_RMII
+	value |= AT91_EMAC_CFG_RMII;
+#endif
+	writel(value, &emac->cfg);
+
+	writel(readl(&emac->ctl) | AT91_EMAC_CTL_TE | AT91_EMAC_CTL_RE,
+		&emac->ctl);
+
+	at91emac_phy_start_autonegation(netdev);
+	/* 
+         * if (!at91emac_phy_init(netdev)) {
+	 * 	at91emac_UpdateLinkSpeed(emac);
+	 * 	return 0;
+	 * }
+         */
+	return 1;
+}
+
 int at91emac_register(bd_t *bis, unsigned long iobase)
 {
 	emac_device *emac;
@@ -518,5 +600,8 @@ int at91emac_register(bd_t *bis, unsigned long iobase)
 #if defined(CONFIG_MII) || defined(CONFIG_CMD_MII)
 	miiphy_register(dev->name, at91emac_mii_read, at91emac_mii_write);
 #endif
+	/* 2010-12-03 gc: do pre initialization and start autonegation */
+	at91emac_pre_init(dev, bis);
 	return 1;
 }
+

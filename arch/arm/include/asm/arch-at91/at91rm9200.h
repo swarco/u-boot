@@ -130,6 +130,42 @@
 #define AT91_PMX_CA_NCS7	0x00002000
 #define AT91_PMX_CA_D16_31	0xFFFF0000
 
+/*
+ * User Peripheral physical base addresses.
+ */
+#define AT91RM9200_BASE_TCB0		0xfffa0000
+#define AT91RM9200_BASE_TC0		0xfffa0000
+#define AT91RM9200_BASE_TC1		0xfffa4000
+#define AT91RM9200_BASE_UDP		0xfffb0000
+#define AT91RM9200_BASE_MCI		0xfffb4000
+#define AT91RM9200_BASE_TWI		0xfffb8000
+#define AT91RM9200_BASE_EMAC		0xfffbc000
+
+#define AT91RM9200_BASE_US0		0xfffc0000
+#define AT91RM9200_BASE_US1		0xfffc4000
+#define AT91RM9200_BASE_US2		0xfffc8000
+#define AT91RM9200_BASE_US3		0xfffcc000
+#define AT91RM9200_BASE_SSC0		0xfffd0000
+#define AT91RM9200_BASE_SSC1		0xfffd4000
+#define AT91RM9200_BASE_SSC2		0xfffd8000
+#define AT91RM9200_BASE_SPI		0xfffe0000
+#define AT91_BASE_SYS	 0xfffff000
+
+/*
+ * System Peripherals (offset from AT91_BASE_SYS)
+ */
+#define AT91_AIC	(0xfffff000 - AT91_BASE_SYS)
+#define AT91_DBGU	(0xfffff200 - AT91_BASE_SYS)
+#define AT91_PIOA	(0xfffff400 - AT91_BASE_SYS)
+#define AT91_PIOB	(0xfffff600 - AT91_BASE_SYS)
+#define AT91_PIOC	(0xfffff800 - AT91_BASE_SYS)
+#define AT91_PIOD	(0xfffffa00 - AT91_BASE_SYS)
+
+#define AT91_USART0	AT91RM9200_BASE_US0
+#define AT91_USART1	AT91RM9200_BASE_US1
+#define AT91_USART2	AT91RM9200_BASE_US2
+#define AT91_USART3	AT91RM9200_BASE_US3
+
 #define CONFIG_SYS_AT91_CPU_NAME	"AT91RM9200"
 
 #endif

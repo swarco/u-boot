@@ -633,13 +633,22 @@ typedef struct _AT91S_PDC
 #define AT91C_PB20_RXD1		AT91C_PIO_PB20			/* USART1 Receive Data */
 #define AT91C_PIO_PB21		((unsigned int) 1 << 21)	/* Pin Controlled by PB21 */
 #define AT91C_PB21_TXD1		AT91C_PIO_PB21			/* USART1 Transmit Data */
+#define AT91C_PIO_PB22          ((unsigned int) 1 << 22)        /* Pin Controlled by PB22 */
+
+#define AT91C_PIO_PA19          ((unsigned int) 1 << 19)        /* Pin Controlled by PA19 */
+#define AT91C_PIO_PA20          ((unsigned int) 1 << 20)        /* Pin Controlled by PA20 */
+#define AT91C_PIO_PA21          ((unsigned int) 1 << 21)        /* Pin Controlled by PA21 */
+#define AT91C_PIO_PA22          ((unsigned int) 1 << 22)        /* Pin Controlled by PA22 */
+#define AT91C_PA22_RXD2         AT91C_PIO_PA22                  /* USART 2 Receive Data */
 
 #define AT91C_ID_SYS		((unsigned int)  1) /* System Peripheral */
 #define AT91C_ID_PIOA		((unsigned int)  2) /* PIO port A */
 #define AT91C_ID_PIOB		((unsigned int)  3) /* PIO port B */
 #define AT91C_ID_PIOC		((unsigned int)  4) /* PIO port C */
+#define AT91C_ID_PIOD		((unsigned int)  5) /* PIO port D */
 #define AT91C_ID_USART0		((unsigned int)  6) /* USART 0 */
 #define AT91C_ID_USART1		((unsigned int)  7) /* USART 1 */
+#define AT91C_ID_USART2	        ((unsigned int)  8) /* USART 2 */
 #define AT91C_ID_TWI		((unsigned int) 12) /* Two Wire Interface */
 #define AT91C_ID_SPI		((unsigned int) 13) /* Serial Peripheral Interface */
 #define AT91C_ID_TC0		((unsigned int) 17) /* Timer Counter 0 */
@@ -780,6 +789,18 @@ typedef struct _AT91S_PDC
 #define AT91C_PIOB_PER		((AT91_REG *)	0xFFFFF600) /* (PIOB) PIO Enable Register */
 #define AT91C_PIOB_ODR		((AT91_REG *)	0xFFFFF614) /* (PIOB) Output Disable Registerr */
 #define AT91C_PIOB_PDSR		((AT91_REG *)	0xFFFFF63C) /* (PIOB) Pin Data Status Register */
+
+/* 2006-05-22 gc: defines for PIOD */
+#define AT91C_PIO_PD0        ((unsigned int) 1 <<  0) /* Pin Controlled by PD0 */
+#define AT91C_PIOD_PER  ((AT91_REG *) 	0xFFFFFA00) /* (PIOD) PIO Enable Register */
+#define AT91C_PIOD_PDR  ((AT91_REG *) 	0xFFFFFA04) /* (PIOD) PIO Disable Register */
+#define AT91C_PIOD_OER  ((AT91_REG *) 	0xFFFFFA10) /* (PIOD) PIO Output Enable Register */
+#define AT91C_PIOD_SODR  ((AT91_REG *) 	0xFFFFFA30) /* (PIOD) PIO Set Output Data Register */
+#define AT91C_PIOD_CODR  ((AT91_REG *) 	0xFFFFFA34) /* (PIOD) PIO Clear Output Data Register*/
+#define AT91C_PIOD_ODSR  ((AT91_REG *) 	0xFFFFFA38) /* (PIOD) PIO Output Data Status */
+#define AT91C_PIOD_MDER  ((AT91_REG *) 	0xFFFFFA50) /* (PIOD) Multi-driver Enable Register */
+#define AT91C_PIOD_PUDR  ((AT91_REG *) 	0xFFFFFA60) /* (PIOD) PIO Pull-up disable Reg */
+
 
 #else
 /* flash */

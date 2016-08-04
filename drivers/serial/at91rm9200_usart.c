@@ -30,9 +30,11 @@
  */
 
 #include <common.h>
+#include <watchdog.h>
 
 #ifndef CONFIG_AT91_LEGACY
 #include <asm/io.h>
+#include <asm/arch/clk.h>
 #include <asm/arch/hardware.h>
 #define CONFIG_AT91_LEGACY
 #include <asm/arch-at91rm9200/AT91RM9200.h>
@@ -43,8 +45,8 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#if !defined(CONFIG_DBGU) && !defined(CONFIG_USART0) && !defined(CONFIG_USART1)
-#error must define one of CONFIG_DBGU or CONFIG_USART0 or CONFIG_USART1
+#if !defined(CONFIG_DBGU) && !defined(CONFIG_USART0) && !defined(CONFIG_USART1) && !defined(CONFIG_USART2)
+#error must define one of CONFIG_DBGU or CONFIG_USART0 or CONFIG_USART1 or CONFIG_USART2
 #endif
 
 /* ggi thunder */
@@ -57,6 +59,10 @@ AT91PS_USART us = (AT91PS_USART) AT91C_BASE_US0;
 #ifdef CONFIG_USART1
 AT91PS_USART us = (AT91PS_USART) AT91C_BASE_US1;
 #endif
+#ifdef CONFIG_USART2
+AT91PS_USART us = (AT91PS_USART) AT91C_BASE_US2;
+#endif
+
 
 void serial_setbrg (void)
 {
@@ -65,7 +71,11 @@ void serial_setbrg (void)
 	if ((baudrate = gd->baudrate) <= 0)
 		baudrate = CONFIG_BAUDRATE;
 	/* MASTER_CLOCK/(16 * baudrate) */
+#ifdef CONFIG_CCM2200
+	us->US_BRGR = (get_mck_clk_rate() >> 4) / (unsigned)baudrate;
+#else
 	us->US_BRGR = (AT91C_MASTER_CLOCK >> 4) / (unsigned)baudrate;
+#endif
 }
 
 int serial_init (void)
@@ -83,6 +93,11 @@ int serial_init (void)
 	*AT91C_PIOB_PDR = AT91C_PB21_TXD1 | AT91C_PB20_RXD1;
 	*AT91C_PMC_PCER |= 1 << AT91C_ID_USART1;	/* enable clock */
 #endif
+#ifdef CONFIG_USART2
+	*AT91C_PIOA_PDR = AT91C_PA23_TXD2 | AT91C_PA22_RXD2;
+	*AT91C_PMC_PCER |= 1 << AT91C_ID_USART2;	/* enable clock */
+#endif
+
 	serial_setbrg ();
 
 	us->US_CR = AT91C_US_RSTRX | AT91C_US_RSTTX;
@@ -103,7 +118,9 @@ void serial_putc (const char c)
 {
 	if (c == '\n')
 		serial_putc ('\r');
-	while ((us->US_CSR & AT91C_US_TXRDY) == 0);
+	while ((us->US_CSR & AT91C_US_TXRDY) == 0)
+		WATCHDOG_RESET ();	/* Reset HW Watchdog, if needed */
+
 	us->US_THR = c;
 }
 
@@ -116,7 +133,8 @@ void serial_puts (const char *s)
 
 int serial_getc (void)
 {
-	while ((us->US_CSR & AT91C_US_RXRDY) == 0);
+	while ((us->US_CSR & AT91C_US_RXRDY) == 0)
+		WATCHDOG_RESET ();	/* Reset HW Watchdog, if needed */
 	return us->US_RHR;
 }
 

@@ -249,8 +249,10 @@ static void at91_nand_hwcontrol(struct mtd_info *mtd,
 		if (ctrl & NAND_ALE)
 			IO_ADDR_W |= CONFIG_SYS_NAND_MASK_ALE;
 
+#ifdef CONFIG_SYS_NAND_ENABLE_PIN
 		at91_set_gpio_value(CONFIG_SYS_NAND_ENABLE_PIN,
 				    !(ctrl & NAND_NCE));
+#endif
 		this->IO_ADDR_W = (void *) IO_ADDR_W;
 	}
 
@@ -262,6 +264,18 @@ static void at91_nand_hwcontrol(struct mtd_info *mtd,
 static int at91_nand_ready(struct mtd_info *mtd)
 {
 	return at91_get_gpio_value(CONFIG_SYS_NAND_READY_PIN);
+
+}
+#endif
+
+#ifdef CONFIG_CCM2200
+#include <watchdog.h>
+static int at91_nand_ready(struct mtd_info *mtd)
+{
+        at91_pio_t *pio = (at91_pio_t *) AT91_PIO_BASE;
+        WATCHDOG_RESET ();
+        return ((readl(&pio->pioa.pdsr) & (1<<19)) != 0) ? 1 : 0;
+
 }
 #endif
 
@@ -277,7 +291,7 @@ int board_nand_init(struct nand_chip *nand)
 	nand->options = NAND_BUSWIDTH_16;
 #endif
 	nand->cmd_ctrl = at91_nand_hwcontrol;
-#ifdef CONFIG_SYS_NAND_READY_PIN
+#if defined(CONFIG_SYS_NAND_READY_PIN) || defined(CONFIG_CCM2200)
 	nand->dev_ready = at91_nand_ready;
 #endif
 	nand->chip_delay = 20;

@@ -35,7 +35,7 @@
 #ifdef CONFIG_DRIVER_ETHER
 
 #if defined(CONFIG_CMD_NET)
-
+static unsigned short phy_address = 0;
 /*
  * Name:
  *	lxt972_IsPhyConnected
@@ -51,13 +51,22 @@ unsigned int lxt972_IsPhyConnected (AT91PS_EMAC p_mac)
 {
 	unsigned short Id1, Id2;
 
+	for (phy_address = 0; phy_address < 32; phy_address++) {
 	at91rm9200_EmacEnableMDIO (p_mac);
-	at91rm9200_EmacReadPhy(p_mac, PHY_PHYIDR1, &Id1);
-	at91rm9200_EmacReadPhy(p_mac, PHY_PHYIDR2, &Id2);
+		at91rm9200_EmacReadPhy(p_mac, (phy_address << 5) | PHY_PHYIDR1,
+				       &Id1);
+		at91rm9200_EmacReadPhy(p_mac, (phy_address << 5) | PHY_PHYIDR2,
+				       &Id2);
 	at91rm9200_EmacDisableMDIO (p_mac);
 
-	if ((Id1 == (0x0013)) && ((Id2  & 0xFFF0) == 0x78E0))
+		printf("lxt972_IsPhyConnected: id1=%d, id2=%d\n", Id1, Id2);
+		if ((Id1 == PHY_LXT971A/* (0x0013) */) 
+		    && ((Id2  & 0xFFF0) == 0x78E0)) {
+			printf("found Cortina LXT971 / LXT972 phy at addr=%d\n",
+			       phy_address);
 		return TRUE;
+		}
+	}
 
 	return FALSE;
 }
@@ -78,7 +87,7 @@ UCHAR lxt972_GetLinkSpeed (AT91PS_EMAC p_mac)
 {
 	unsigned short stat1;
 
-	if (!at91rm9200_EmacReadPhy (p_mac, PHY_LXT971_STAT2, &stat1))
+	if (!at91rm9200_EmacReadPhy (p_mac, (phy_address << 5) | PHY_LXT971_STAT2, &stat1))
 		return FALSE;
 
 	if (!(stat1 & PHY_LXT971_STAT2_LINK))	/* link status up? */
@@ -121,6 +130,7 @@ UCHAR lxt972_GetLinkSpeed (AT91PS_EMAC p_mac)
 }
 
 
+UCHAR lxt972_AutoNegotiate (AT91PS_EMAC p_mac, int *status);
 /*
  * Name:
  *	lxt972_InitPhy
@@ -136,6 +146,8 @@ UCHAR lxt972_GetLinkSpeed (AT91PS_EMAC p_mac)
 UCHAR lxt972_InitPhy (AT91PS_EMAC p_mac)
 {
 	UCHAR ret = TRUE;
+	int dummy;
+	printf("lxt972_InitPhy()\n");
 
 	at91rm9200_EmacEnableMDIO (p_mac);
 
@@ -145,10 +157,13 @@ UCHAR lxt972_InitPhy (AT91PS_EMAC p_mac)
 	}
 
 	/* Disable PHY Interrupts */
-	at91rm9200_EmacWritePhy (p_mac, PHY_LXT971_INT_ENABLE, 0);
+	at91rm9200_EmacWritePhy (p_mac, (phy_address << 5) | PHY_LXT971_INT_ENABLE, 0);
 
 	at91rm9200_EmacDisableMDIO (p_mac);
 
+	/* lxt972_AutoNegotiate() (or PhyOps.AutoNegotiate() seems
+	 * never be called at all, so we call it once here */
+	lxt972_AutoNegotiate(p_mac, &dummy);
 	return (ret);
 }
 
@@ -168,23 +183,44 @@ UCHAR lxt972_InitPhy (AT91PS_EMAC p_mac)
 UCHAR lxt972_AutoNegotiate (AT91PS_EMAC p_mac, int *status)
 {
 	unsigned short value;
+	int i;
+
+	printf("lxt972_AutoNegotiate\n");
+	at91rm9200_EmacEnableMDIO (p_mac);
+
+	/* Write Autonegotion advertisement register */
+	value = PHY_ANLPAR_TX | PHY_ANLPAR_TXFD 
+		| PHY_ANLPAR_10 | PHY_ANLPAR_10FD
+		| PHY_ANLPAR_PSB_802_3;
+
+	if (!at91rm9200_EmacWritePhy (p_mac, (phy_address << 5) | PHY_ANAR, &value))
+		return FALSE;
 
 	/* Set lxt972 control register */
-	if (!at91rm9200_EmacReadPhy (p_mac, PHY_BMCR, &value))
+	if (!at91rm9200_EmacReadPhy (p_mac, (phy_address << 5) | PHY_BMCR, &value))
 		return FALSE;
 
 	/* Restart Auto_negotiation  */
-	value |= PHY_BMCR_RST_NEG;
-	if (!at91rm9200_EmacWritePhy (p_mac, PHY_BMCR, &value))
+	value |= PHY_BMCR_AUTON | PHY_BMCR_RST_NEG;
+	if (!at91rm9200_EmacWritePhy (p_mac, (phy_address << 5) | PHY_BMCR, &value))
 		return FALSE;
 
-	/*check AutoNegotiate complete */
-	udelay (10000);
-	at91rm9200_EmacReadPhy(p_mac, PHY_BMSR, &value);
-	if (!(value & PHY_BMSR_AUTN_COMP))
-		return FALSE;
+	for (i = 0; i < 50; i++) {
 
+		/*check AutoNegotiate complete */
+		//udelay (10000);
+		udelay (100000);
+		at91rm9200_EmacReadPhy(p_mac, (phy_address << 5) | PHY_BMSR, &value);
+		printf("PHY-SR: %04x, %d\n", value, (value & PHY_BMSR_AUTN_COMP) != 0);
+		if (value & PHY_BMSR_AUTN_COMP) {
+			at91rm9200_EmacDisableMDIO (p_mac);
 	return (lxt972_GetLinkSpeed (p_mac));
+		}
+	}
+
+	at91rm9200_EmacDisableMDIO (p_mac);
+	printf("autonegation failed\n");
+	return FALSE;
 }
 
 #endif

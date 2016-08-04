@@ -183,7 +183,7 @@ int eth_init (bd_t * bd)
 
 	*AT91C_PMC_PCER = 1 << AT91C_ID_EMAC;	/* Peripheral Clock Enable Register */
 
-	p_mac->EMAC_CFG |= AT91C_EMAC_CSR;	/* Clear statistics */
+	p_mac->EMAC_CTL |= AT91C_EMAC_CSR;	/* Clear statistics */
 
 	/* Init Ethernet buffers */
 	for (i = 0; i < RBF_FRAMEMAX; i++) {
@@ -287,7 +287,7 @@ int  at91rm9200_miiphy_read(const char *devname, unsigned char addr,
 		unsigned char reg, unsigned short * value)
 {
 	at91rm9200_EmacEnableMDIO (p_mac);
-	at91rm9200_EmacReadPhy (p_mac, reg, value);
+	at91rm9200_EmacReadPhy (p_mac, (addr<<5) | reg, value);
 	at91rm9200_EmacDisableMDIO (p_mac);
 	return 0;
 }
@@ -296,7 +296,7 @@ int  at91rm9200_miiphy_write(const char *devname, unsigned char addr,
 		unsigned char reg, unsigned short value)
 {
 	at91rm9200_EmacEnableMDIO (p_mac);
-	at91rm9200_EmacWritePhy (p_mac, reg, &value);
+	at91rm9200_EmacWritePhy (p_mac, (addr<<5) | reg, &value);
 	at91rm9200_EmacDisableMDIO (p_mac);
 	return 0;
 }

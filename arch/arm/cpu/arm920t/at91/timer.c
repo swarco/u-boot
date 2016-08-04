@@ -126,6 +126,12 @@ ulong get_timer_masked(void)
 	return get_timer_raw()/TIMER_LOAD_VAL;
 }
 
+#ifndef MAX_ULONG
+/* where can we get a definition of MAX_ULONG in u-boot? limits.h
+ * seams not to work in u-boot
+ */
+#define MAX_ULONG	0xffffffff
+#endif
 void udelay_masked(unsigned long usec)
 {
 	u32 tmo;
@@ -133,8 +139,17 @@ void udelay_masked(unsigned long usec)
 	signed long diff;
 
 	tmo = CONFIG_SYS_HZ_CLOCK / 1000;
+	/* 2010-11-19 gc: prevent multiplication overflow on large
+	 * usec values.  My board has a CONFIG_SYS_HZ_CLOCK of
+	 * 39628800, so usec values large then about 108ms causes an
+	 * overflow and so an invalid delay time
+	 */
+	if (usec >= (MAX_ULONG / CONFIG_SYS_HZ_CLOCK) * 1000) {
+		tmo *= (usec / 1000);
+	} else {
 	tmo *= usec;
 	tmo /= 1000;
+	}
 
 	endtime = get_timer_raw() + tmo;
 

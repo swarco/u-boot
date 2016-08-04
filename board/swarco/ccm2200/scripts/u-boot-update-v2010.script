@@ -1,0 +1,23 @@
+ccm2200 led 0xfff3 0;ccm2200 led 0x0100 1
+echo *** SWARCO Traffic Systems CCM2200 U-Boot Update (U-Boot v2010) running...
+echo
+echo *** loading default environment...
+ccm2200 defaultenv
+echo *** starting first saveenv
+saveenv
+echo *** starting second saveenv
+saveenv
+echo *** ready first saveenv
+ccm2200 led 0x0100 0;ccm2200 led 0x0200 1
+echo *** loading u-boot image vom USB device...
+fatload usb 0 $(loadaddr) $(uimg)
+ccm2200 led 0x0200 0;ccm2200 led 0x0400 1
+echo *** erasing NOR flash...
+run cfu 
+ccm2200 led 0x0400 0;ccm2200 led 0x0800 1
+echo *** writing u-boot image to NOR flash...
+run wfu
+echo *** u-boot update finished please reset system
+ccm2200 led 0xfff3 0;ccm2200 led 0xf991 1
+sleep 2147483647
+reset

@@ -34,10 +34,14 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#define ENV_NEED_REWRITE	0x100
+#define ENV_VALID_MASK		0x0ff
+
 env_t *env_ptr = NULL;
 
 char * env_name_spec = "EEPROM";
 int env_eeprom_bus = -1;
+
 
 static int eeprom_bus_read (unsigned dev_addr, unsigned offset, uchar *buffer,
 				unsigned cnt)
@@ -96,8 +100,14 @@ uchar env_get_char_spec (int index)
 	unsigned int off;
 	off = CONFIG_ENV_OFFSET;
 #ifdef CONFIG_ENV_OFFSET_REDUND
-	if (gd->env_valid == 2)
+	if ((gd->env_valid & ENV_VALID_MASK) == 2)
 		off = CONFIG_ENV_OFFSET_REDUND;
+#ifdef CONFIG_ENV_OFFSET_OLD
+	if ((gd->env_valid & ENV_VALID_MASK) == 3) {
+		off = CONFIG_ENV_OFFSET_OLD;
+		--index;	/* we have no flags field */
+	}
+#endif
 #endif
 
 	eeprom_bus_read (CONFIG_SYS_DEF_EEPROM_ADDR,
@@ -111,13 +121,55 @@ void env_relocate_spec (void)
 {
 	unsigned int off = CONFIG_ENV_OFFSET;
 #ifdef CONFIG_ENV_OFFSET_REDUND
-	if (gd->env_valid == 2)
+	if ((gd->env_valid & ENV_VALID_MASK) == 2)
 		off = CONFIG_ENV_OFFSET_REDUND;
+#ifdef CONFIG_ENV_OFFSET_OLD
+	if ((gd->env_valid & ENV_VALID_MASK) == 3)
+		off = CONFIG_ENV_OFFSET_OLD-1; /* we have no flags field */
+	printf("Valid environment: ");
+	switch (gd->env_valid) {
+	default:
+		printf("none\n"); break;
+	case 1:
+	case 2:
+		printf("both redundant copies\n"); break;
+	case 1 | ENV_NEED_REWRITE:
+		printf("first redundant copy\n"); break;
+	case 2 | ENV_NEED_REWRITE:
+		printf("second redundant copy\n"); break;
+	case 3 | ENV_NEED_REWRITE:
+		printf("environment from old u-boot\n"); break;
+	}
 #endif
+#endif
+	
 	eeprom_bus_read (CONFIG_SYS_DEF_EEPROM_ADDR,
 		     off,
 		     (uchar*)env_ptr,
 		     CONFIG_ENV_SIZE);
+#ifdef CONFIG_ENV_OFFSET_OLD
+	/* 2010-12-01 gc: set end mark in case new env is smaller than old */
+	if ((gd->env_valid & ENV_VALID_MASK) == 3) {
+		((uchar*)env_ptr)[CONFIG_ENV_SIZE-2] = '\0';
+		((uchar*)env_ptr)[CONFIG_ENV_SIZE-1] = '\0';
+		env_crc_update();
+#ifdef CONFIG_SYS_REDUNDAND_ENVIRONMENT
+		env_ptr->flags = 0xFF;
+#endif
+
+	}
+	if (gd->env_valid & ENV_NEED_REWRITE) {
+		gd->env_valid &= ~ENV_NEED_REWRITE;
+#ifdef CONFIG_SYS_REDUNDAND_ENV_RECOVER
+		printf("recovering redundant environment\n");
+		saveenv();
+#else
+		printf("environment in EEPROM needs to be rewritten\n");
+		printf("Autorecovery DISABLED, please issue 'saveenv' command\n");
+#endif
+	}
+
+#endif
 }
 
 int saveenv(void)
@@ -127,7 +179,7 @@ int saveenv(void)
 #ifdef CONFIG_ENV_OFFSET_REDUND
 	unsigned int off_red = CONFIG_ENV_OFFSET_REDUND;
 	char flag_obsolete = OBSOLETE_FLAG;
-	if (gd->env_valid == 1) {
+	if ((gd->env_valid & ENV_VALID_MASK) == 1) {
 		off = CONFIG_ENV_OFFSET_REDUND;
 		off_red = CONFIG_ENV_OFFSET;
 	}
@@ -146,7 +198,7 @@ int saveenv(void)
 				  off_red + offsetof(env_t,flags),
 				  (uchar *)&flag_obsolete,
 				  1);
-		if (gd->env_valid == 1)
+		if ((gd->env_valid & ENV_VALID_MASK) == 1)
 			gd->env_valid = 2;
 		else
 			gd->env_valid = 1;
@@ -163,36 +215,47 @@ int saveenv(void)
  * We are still running from ROM, so data use is limited
  * Use a (moderately small) buffer on the stack
  */
-
 #ifdef CONFIG_ENV_OFFSET_REDUND
 int env_init(void)
 {
 	ulong len;
-	ulong crc[2], crc_tmp;
-	unsigned int off, off_env[2];
+	ulong crc[3], crc_tmp;
+	unsigned int off, off_env[3];
 	uchar buf[64];
-	int crc_ok[2] = {0,0};
-	unsigned char flags[2];
+	int crc_ok[3] = {0,0,0};
+	unsigned char flags[3];
 	int i;
 
 	eeprom_init ();	/* prepare for EEPROM read/write */
 
 	off_env[0] = CONFIG_ENV_OFFSET;
 	off_env[1] = CONFIG_ENV_OFFSET_REDUND;
+	off_env[2] = CONFIG_ENV_OFFSET_OLD;
 
-	for (i = 0; i < 2; i++) {
+	for (i = 0; i < 3; i++) {
 		/* read CRC */
 		eeprom_bus_read (CONFIG_SYS_DEF_EEPROM_ADDR,
 			off_env[i] + offsetof(env_t,crc),
 			(uchar *)&crc[i], sizeof(ulong));
-		/* read FLAGS */
-		eeprom_bus_read (CONFIG_SYS_DEF_EEPROM_ADDR,
-			off_env[i] + offsetof(env_t,flags),
-			(uchar *)&flags[i], sizeof(uchar));
+		if (i != 2) {
+			/* read FLAGS */
+			eeprom_bus_read (CONFIG_SYS_DEF_EEPROM_ADDR,
+					 off_env[i] + offsetof(env_t,flags),
+					 (uchar *)&flags[i], sizeof(uchar));
+			len = ENV_SIZE;
+			off = off_env[i] + offsetof(env_t,data);
 
-		crc_tmp= 0;
-		len = ENV_SIZE;
-		off = off_env[i] + offsetof(env_t,data);
+		} else {
+			if (crc_ok[0] || crc_ok[1]) {
+				break;
+			}
+			/* 2010-12-01 gc: try old layout (no flags field) */
+			flags[i] = 0;
+			len = CONFIG_ENV_SIZE_OLD - sizeof(env_ptr->crc);
+			off = off_env[i] + offsetof(env_t,flags);
+		}
+
+		crc_tmp = 0;
 		while (len > 0) {
 			int n = (len > sizeof(buf)) ? sizeof(buf) : len;
 
@@ -210,12 +273,16 @@ int env_init(void)
 	if (!crc_ok[0] && !crc_ok[1]) {
 		gd->env_addr  = 0;
 		gd->env_valid = 0;
-
-		return 0;
+		
+		/* check if old environment layout is valid */
+		if (crc_ok[2]) {
+			gd->env_valid = 3;
+		} else {
+			return 0;
+		}
 	} else if (crc_ok[0] && !crc_ok[1]) {
 		gd->env_valid = 1;
-	}
-	else if (!crc_ok[0] && crc_ok[1]) {
+	} else if (!crc_ok[0] && crc_ok[1]) {
 		gd->env_valid = 2;
 	} else {
 		/* both ok - check serial */
@@ -235,7 +302,13 @@ int env_init(void)
 		gd->env_addr = off_env[1] + offsetof(env_t,data);
 	else if (gd->env_valid == 1)
 		gd->env_addr = off_env[0] + offsetof(env_t,data);
+	else if (gd->env_valid == 3)
+		gd->env_addr = off_env[2] + offsetof(env_t,data);
 
+	if (gd->env_valid != 0 && 
+	    (crc[0] != crc[1] || !crc_ok[0] || !crc_ok[1])) {
+		gd->env_valid |= ENV_NEED_REWRITE;
+	}
 	return (0);
 }
 #else

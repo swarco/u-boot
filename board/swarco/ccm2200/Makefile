@@ -1,5 +1,12 @@
 #
-# (C) Copyright 2000-2006
+# board/ccm2200/Makefile
+#
+# Copyright (C) 2006 by Weiss-Electronic GmbH.
+# Copyright (C) 2010 by SWARCO Traffic Systems GmbH.
+# Guido Classen <guido.classen@swarco.de>
+# All rights reserved.
+#
+# derived from Makefile written by 
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
 # See file CREDITS for list of people who contributed to this
@@ -12,7 +19,7 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
@@ -23,26 +30,23 @@
 
 include $(TOPDIR)/config.mk
 
-LIB	= $(obj)lib$(SOC).a
+LIB	= lib$(BOARD).a
 
-SOBJS	+= lowlevel_init.o
-COBJS	+= reset.o
-COBJS	+= timer.o
-COBJS	+= at91_util.o
+OBJS	:= ccm2200.o nand_ccm2200.o
+$(LIB):	$(OBJS) $(SOBJS)
+	$(AR) crv $@ $(OBJS) $(SOBJS)
 
-SRCS	:= $(SOBJS:.o=.S) $(COBJS:.o=.c)
-OBJS	:= $(addprefix $(obj),$(SOBJS) $(COBJS))
+clean:
+	rm -f $(SOBJS) $(OBJS)
 
-all:	$(obj).depend $(LIB)
-
-$(LIB):	$(OBJS)
-	$(AR) $(ARFLAGS) $@ $(OBJS)
+distclean:	clean
+	rm -f $(LIB) core *.bak .depend
 
 #########################################################################
 
-# defines $(obj).depend target
-include $(SRCTREE)/rules.mk
+.depend:	Makefile $(SOBJS:.o=.S) $(OBJS:.o=.c)
+		$(CC) -M $(CPPFLAGS) $(SOBJS:.o=.S) $(OBJS:.o=.c) > $@
 
-sinclude $(obj).depend
+-include .depend
 
 #########################################################################

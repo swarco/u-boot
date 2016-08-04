@@ -236,4 +236,21 @@ U_BOOT_CMD(
 	"unit name in the form of addr:<subimg_uname>"
 #endif
 );
+
+/* 2010-11-15 gc: comand source replace to old autoscr command!
+ * create alias to make uboot work with old environments
+ */
+U_BOOT_CMD(
+	autoscr, 2, 0,	do_source,
+	"run script from memory",
+	"[addr]\n"
+	"\t- run script starting at addr\n"
+	"\t- A valid image header must be present"
+#if defined(CONFIG_FIT)
+	"\n"
+	"For FIT format uImage addr must include subimage\n"
+	"unit name in the form of addr:<subimg_uname>"
+#endif
+);
+
 #endif
