@@ -48,7 +48,7 @@
 
 /* CS1: SD-RAM */
 #define CCM2200_SDRAM_PHYS		0x20000000
-#define CCM2200_SDRAM_SIZE		(32*1024*1024)
+#define CCM2200_SDRAM_SIZE		(64*1024*1024)
 
 /* CS2: SRAM */
 #define CCM2200_SRAM_CS                 2
@@ -129,9 +129,108 @@
 #define CONFIG_SYS_PIOC_BSR_VAL	0x00000000
 #define CONFIG_SYS_PIOC_PDR_VAL	0xFFFF0000
 #define CONFIG_SYS_EBI_CSA_VAL	0x00000002 /* CS1=CONFIG_SYS_SDRAM */
-/* #define CONFIG_SYS_SDRC_CR_VAL	0x2188c155 /\* set up the CONFIG_SYS_SDRAM *\/ */
-#define CONFIG_SYS_SDRC_CR_VAL	0x3399c255 /* set up the SDRAM, taken from UNC90 test */
-				   /* COL=9, RAS=12, 4 Banks, CL=2, TWR=4, TRC=8*/
+
+
+#define		AT91_SDRAMC_NC		(3 << 0)		/* Number of Column Bits */
+#define			AT91_SDRAMC_NC_8	(0 << 0)
+#define			AT91_SDRAMC_NC_9	(1 << 0)
+#define			AT91_SDRAMC_NC_10	(2 << 0)
+#define			AT91_SDRAMC_NC_11	(3 << 0)
+#define		AT91_SDRAMC_NR		(3 << 2)		/* Number of Row Bits */
+#define			AT91_SDRAMC_NR_11	(0 << 2)
+#define			AT91_SDRAMC_NR_12	(1 << 2)
+#define			AT91_SDRAMC_NR_13	(2 << 2)
+#define		AT91_SDRAMC_NB		(1 << 4)		/* Number of Banks */
+#define			AT91_SDRAMC_NB_2	(0 << 4)
+#define			AT91_SDRAMC_NB_4	(1 << 4)
+#define		AT91_SDRAMC_CAS		(3 << 5)		/* CAS Latency */
+#define			AT91_SDRAMC_CAS_1	(1 << 5)
+#define			AT91_SDRAMC_CAS_2	(2 << 5)
+#define			AT91_SDRAMC_CAS_3	(3 << 5)
+
+#define		AT91_SDRAMC_TWR		(0xf <<  7)		/* Write Recovery Delay */
+#define		AT91_SDRAMC_TRC		(0xf << 11)		/* Row Cycle Delay */
+#define		AT91_SDRAMC_TRP		(0xf << 15)		/* Row Precharge Delay */
+#define		AT91_SDRAMC_TRCD	(0xf << 19)		/* Row to Column Delay */
+#define		AT91_SDRAMC_TRAS	(0xf << 23)		/* Active to Precharge Delay */
+#define		AT91_SDRAMC_TXSR	(0xf << 27)		/* Exit Self Refresh to Active Delay */
+
+/* ISSI42SM32160E and 
+ * ISSI42SM32800E parameters:
+ * T_WR = T_DPL = 15ns
+ * T_RC = 67.5ns
+ * T_RP = 22.5ns
+ * T_RCD = 22.5ns
+ * T_RAS = 45ns
+ * T_XSR = 80ns
+ *
+ * @MCLK = 79.2576MHz => 1 CLK=12.612ns
+ */ 
+
+
+#define CONFIG_SYS_SDRC_CR_VAL_64MB					\
+	(AT91_SDRAMC_NC_9 | /* COL=9 */					\
+	 AT91_SDRAMC_NR_13  /* RAS=13 */ |				\
+	 AT91_SDRAMC_NB_4   /* 4 Banks */|				\
+	 AT91_SDRAMC_CAS_2  /* CL=2 */|					\
+	 (2 <<  7) |	    /* TWR Write Recovery Delay */		\
+	 (6 << 11) |	    /* TRC Row Cycle Delay */			\
+	 (2 << 15) |	    /* TRP Row Precharge Delay */		\
+	 (2 << 19) |	    /* TRCD Row to Column Delay */		\
+	 (4 << 23) |	    /* TRAS Active to Precharge Delay */	\
+	 (7 << 27))	    /* TXSR Exit Self Refresh to Active Delay */
+
+
+/* Samsung K4S563233F-HN75 parameters:
+ * T_WR = T_RDL = 2CLK
+ * T_RC = 63ns
+ * T_RP = 18ns
+ * T_RCD = 18ns
+ * T_RAS = 45ns
+ * T_XSR = ???
+ *
+* Samsung K4M563233E-EE1H parameters:
+ * T_WR = T_RDL = 2CLK
+ * T_RC = 69ns
+ * T_RP = 19ns
+ * T_RCD = 19ns
+ * T_RAS = 50ns
+ * T_XSR = ???
+ *
+ * @MCLK = 79.2576MHz => 1 CLK=12.612ns
+ */ 
+/*
+ * Old U-Boot values
+ * #define CONFIG_SYS_SDRC_CR_VAL_32MB					\
+ * 	(AT91_SDRAMC_NC_9 | /\* COL=9 *\/					\
+ * 	 AT91_SDRAMC_NR_12  /\* RAS=12 *\/ |				\
+ * 	 AT91_SDRAMC_NB_4   /\* 4 Banks *\/|				\
+ * 	 AT91_SDRAMC_CAS_2  /\* CL=2 *\/|					\
+ * 	 (4 <<  7) |	    /\* TWR Write Recovery Delay *\/		\
+ * 	 (8 << 11) |	    /\* TRC Row Cycle Delay *\/			\
+ * 	 (3 << 15) |	    /\* TRP Row Precharge Delay *\/		\
+ * 	 (3 << 19) |	    /\* TRCD Row to Column Delay *\/		\
+ * 	 (7 << 23) |	    /\* TRAS Active to Precharge Delay *\/	\
+ * 	 (6 << 27))	    /\* TXSR Exit Self Refresh to Active Delay *\/
+ */
+
+#define CONFIG_SYS_SDRC_CR_VAL_32MB					\
+	(AT91_SDRAMC_NC_9 | /* COL=9 */					\
+	 AT91_SDRAMC_NR_12  /* RAS=12 */ |				\
+	 AT91_SDRAMC_NB_4   /* 4 Banks */|				\
+	 AT91_SDRAMC_CAS_2  /* CL=2 */|					\
+	 (2 <<  7) |	    /* TWR Write Recovery Delay */		\
+	 (6 << 11) |	    /* TRC Row Cycle Delay */			\
+	 (2 << 15) |	    /* TRP Row Precharge Delay */		\
+	 (2 << 19) |	    /* TRCD Row to Column Delay */		\
+	 (4 << 23) |	    /* TRAS Active to Precharge Delay */	\
+	 (7 << 27))	    /* TXSR Exit Self Refresh to Active Delay */
+
+
+/* 2014-01-10 gc: 64MB */
+#define CONFIG_SYS_SDRC_CR_VAL	CONFIG_SYS_SDRC_CR_VAL_64MB
+
+
 
 #define CONFIG_SYS_SDRAM	CCM2200_SDRAM_PHYS
 #define CONFIG_SYS_SDRAM1	(CCM2200_SDRAM_PHYS + 0x80)

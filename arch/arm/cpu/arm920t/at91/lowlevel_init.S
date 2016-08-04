@@ -92,6 +92,55 @@ sdinit:
 	str	r3, [r1]
 	cmp	r2, r0
 	bne	sdinit
+#if defined(CCM2200_SDRAM_PHYS) && defined(CONFIG_SYS_SDRC_CR_VAL_32MB)
+        /* switch SDRAM Controller to RAS=12 if no 64MB SDRAM chip is found
+         * if SDRAM Controller is wrong configured for the 32MB chip,
+         * memory will be mirrored after 8MB then followed by the next
+         * physical memory page at 16MB
+         */
+	/* 
+         * *(volatile ulong *)((unsigned)PHYS_SDRAM+8*1024*1024) = 0;
+	 * *(volatile ulong *)PHYS_SDRAM = 0xaffe1234;
+	 * *(volatile ulong *)((unsigned)PHYS_SDRAM+2*8*1024*1024) = 0x12345678;
+	 * 
+	 * 
+	 * if (*(volatile ulong *)((unsigned)PHYS_SDRAM+8*1024*1024) == 0xaffe1234
+	 *     && *(volatile ulong *)((unsigned)PHYS_SDRAM+2*8*1024*1024) 
+	 *     == 0x012345678) {
+	 * 	writel(CONFIG_SYS_SDRC_CR_VAL_32MB,
+         *                &(((at91_mc_t *)AT91_MC_BASE)->sdramc.cr));
+	 * }
+         */
+
+        ldr     r2, =(PHYS_SDRAM+8*1024*1024)
+        ldr     r0, =0
+        str	r0, [r2]
+
+        ldr     r1, =(PHYS_SDRAM)
+        ldr     r0, =0xaffe1234
+        str	r0, [r1]
+
+
+        ldr     r1, =(PHYS_SDRAM+2*8*1024*1024)
+        ldr     r0, =0x12345678
+        str	r0, [r1]
+
+        ldr	r1, [r1]
+
+        cmp	r1, r0
+        bne	found_64MB
+
+        ldr	r2, [r2]
+        ldr     r0, =0xaffe1234
+        cmp	r2, r0
+        bne	found_64MB
+
+        ldr     r0, =CONFIG_SYS_SDRC_CR_VAL_32MB
+        ldr     r2, =AT91_ASM_MC_SDRAMC_CR
+        str	r0, [r2]
+        
+found_64MB:
+#endif  
 
 	/* switch from FastBus to Asynchronous clock mode */
 	mrc	p15, 0, r0, c1, c0, 0

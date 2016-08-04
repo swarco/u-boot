@@ -42,6 +42,7 @@
 #include <asm/io.h>
 #include <asm/arch/at91_pio.h>
 #include <asm/arch/at91_pmc.h>
+#include <asm/arch/at91_mc.h>
 #include <asm/arch/at91_util.h>
 #include <asm/arch/at91rm9200.h>
 
@@ -904,38 +905,6 @@ void flash_preinit(void)
 }
 
 
-static u8 compute_sdram_nr_banks( void )
-{
-	vu_long *bank_addr1, *bank_addr2;
-	ulong bank1_old, pattern_bank1, pattern_bank2, read_bank1, read_bank2;
-		
-        pattern_bank2 = 0xaaaa5555;
-        pattern_bank1 = 0xa5a5a5a5;
-        
-	bank_addr1 = (ulong *)PHYS_SDRAM;
-	bank_addr2 = (ulong *)(PHYS_SDRAM + PHYS_SDRAM_SIZE);
-	
-	bank1_old =  *bank_addr1;	/* save old value */
-	*bank_addr1 = pattern_bank1;	/* write pattern to 1st bank */
-	*bank_addr2 = pattern_bank2;	/* write pattern to 2nd bank */
-
-	read_bank1 = *bank_addr1;	/* read from 1st bank */
-	read_bank2 = *bank_addr2;	/* read from 2nd bank */
-	
-	*bank_addr1 = bank1_old;	/* write back old value */
-
-	if( read_bank2 == pattern_bank2 ) {
-		if( pattern_bank1 != read_bank1 )
-			return 1;	/* only one bank */
-		else	
-			return 2;	/* both banks */
-	}
-	 
-	return 1;	/* only one bank */
-
-}
-
-
 /**
  * dram_init: - setup dynamic RAM
  *
@@ -945,12 +914,13 @@ int dram_init (void)
 {
 	DECLARE_GLOBAL_DATA_PTR;
 
+	/* PHYS_SDRAM_SIZE is 64MB. In case of a smaller chip, 
+	 * AT91RM9200's SDRAM controller will be reprogrammed in
+	 * lowlevel_init.S before SDRAM will be used by U-Boot
+	 */
 	gd->bd->bi_dram[0].start = PHYS_SDRAM;
-	gd->bd->bi_dram[0].size = PHYS_SDRAM_SIZE;
-	
-	// Depending on the number of banks... adjust the SDRAM size
-	gd->bd->bi_dram[0].size *= compute_sdram_nr_banks();
-	
+	gd->bd->bi_dram[0].size = get_ram_size((volatile long *) PHYS_SDRAM,
+					       PHYS_SDRAM_SIZE);
 	return 0;
 }
 
@@ -974,6 +944,7 @@ static void strtolower(char *dest, unsigned dest_length, const char *src)
 }
 
 
+
 int board_late_init( )
 {
 	at91_pmc_t *pmc = (at91_pmc_t *) AT91_PMC_BASE;
@@ -984,6 +955,26 @@ int board_late_init( )
         /* define pointer gd */
 	DECLARE_GLOBAL_DATA_PTR;
 
+	/* 
+         * printf("cr %08x %08x %08x\n", readl(&(((at91_mc_t *)AT91_MC_BASE)->sdramc.cr)),
+	 *        CONFIG_SYS_SDRC_CR_VAL_32MB, CONFIG_SYS_SDRC_CR_VAL_64MB);
+         */
+	/* 
+         * {		
+	 * 	unsigned i;
+	 * 	*(ulong *)((unsigned)PHYS_SDRAM+8*1024*1024) = 0;
+	 * 	*(ulong *)PHYS_SDRAM = 0xaffe1234;
+	 * 	for (i=0; i<64*1024; ++i) {
+	 * 		if (*(ulong *)((unsigned)PHYS_SDRAM+1024*i) == 0xaffe1234)
+	 * 			printf("Mirrored, at offset %08x\n", 1024*i);
+	 * 	}
+	 * 	if (*(ulong *)((unsigned)PHYS_SDRAM+8*1024*1024) == 0xaffe1234)
+	 * 		printf("8M Mirrored, wrong SDRAM RAS settings\n");
+	 * 	*(ulong *)((unsigned)PHYS_SDRAM+2*8*1024*1024) = 0x12345678;
+	 * 	if (*(ulong *)((unsigned)PHYS_SDRAM+2*8*1024*1024) == 0x12345678)
+	 * 		printf("Upper SDRAM available\n");
+	 * }
+         */
 	//printf("board_late_init()\n");
 	measure_and_set_clocks(1);
 
