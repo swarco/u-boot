@@ -230,6 +230,13 @@ config TARGET_SAMA5D3_XPLAINED
 	select SUPPORT_SPL
 	select BOARD_LATE_INIT
 
+config TARGET_SCC_AIR_V2
+	bool "SCC Air v2 hardware"
+	select BOARD_EARLY_INIT_F
+	select SAMA5D3
+	select SUPPORT_SPL
+	select BOARD_LATE_INIT
+
 config TARGET_SAMA5D3XEK
 	bool "SAMA5D3X-EK board"
 	select BOARD_EARLY_INIT_F
@@ -344,6 +351,7 @@ source "board/atmel/sama5d3_xplained/Kconfig"
 source "board/atmel/sama5d3xek/Kconfig"
 source "board/atmel/sama5d4_xplained/Kconfig"
 source "board/atmel/sama5d4ek/Kconfig"
+source "board/swarco/scc_air_v2/Kconfig"
 source "board/bluewater/gurnard/Kconfig"
 source "board/bluewater/snapper9260/Kconfig"
 source "board/calao/usb_a9263/Kconfig"

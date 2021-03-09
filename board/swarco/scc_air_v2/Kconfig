@@ -1,0 +1,12 @@
+if TARGET_SCC_AIR_V2
+
+config SYS_BOARD
+	default "scc_air_v2"
+
+config SYS_VENDOR
+	default "swarco"
+
+config SYS_CONFIG_NAME
+	default "scc_air_v2"
+
+endif
